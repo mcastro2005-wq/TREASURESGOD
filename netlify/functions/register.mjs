@@ -20,7 +20,7 @@ export default async (req) => {
       body = await req.json();
     }
 
-    const required = ["eventId", "name", "dni", "phone", "email", "category", "paymentMethod"];
+    const required = ["eventId", "name", "dni", "phone", "email", "age", "level", "category", "paymentMethod"];
     if (required.some(k => !String(body[k] ?? "").trim())) {
       return json({ error: "Completa todos los campos obligatorios" }, 400);
     }
@@ -42,6 +42,12 @@ export default async (req) => {
     }
 
     const code = `TG-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+    const age = Number(body.age);
+    if (!Number.isInteger(age) || age < 1 || age > 100) return json({ error: "La edad debe estar entre 1 y 100 años" }, 400);
+
+    const allowedLevels = ["Iniciación", "Intermedio", "Avanzado"];
+    if (!allowedLevels.includes(String(body.level).trim())) return json({ error: "Selecciona un nivel válido" }, 400);
+
     const registration = {
       code,
       createdAt: new Date().toISOString(),
@@ -51,6 +57,8 @@ export default async (req) => {
       dni: String(body.dni).trim(),
       phone: String(body.phone).trim(),
       email: String(body.email).trim(),
+      age,
+      level: String(body.level).trim(),
       category: String(body.category).trim(),
       paymentMethod: String(body.paymentMethod).trim(),
       paymentReference: String(body.paymentReference || "").trim(),
