@@ -38,7 +38,8 @@ export default async (req) => {
 
     const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
     const key = `${id}.${ext}`;
-    await photosStore().set(key, file, { metadata: { contentType: file.type } });
+    const bytes = await file.arrayBuffer();
+    await photosStore().set(key, bytes, { metadata: { contentType: file.type } });
 
     const events = await eventsStore().get("events", { type: "json" }) || [];
     const i = events.findIndex(e => e.id === id);
