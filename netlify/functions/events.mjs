@@ -1,4 +1,4 @@
-import { eventsStore, defaultEvents, json, requireSession } from "./_shared.mjs";
+import { eventsStore, registrationsStore, defaultEvents, json, requireSession } from "./_shared.mjs";
 
 async function readEvents() {
   const store = eventsStore();
@@ -11,7 +11,11 @@ async function readEvents() {
 export default async (req) => {
   try {
     const method = req.method.toUpperCase();
-    if (method === "GET") return json(await readEvents());
+    if (method === "GET") {
+      const events = await readEvents();
+      const regs = await registrationsStore().get("registrations", { type: "json" }) || [];
+      return json(events.map(e => ({ ...e, registered: regs.filter(r => r.eventId === e.id).length, remaining: Math.max(0, Number(e.capacity) - regs.filter(r => r.eventId === e.id).length) })));
+    }
     if (!(await requireSession(req))) return json({ error: "No autorizado" }, 401);
     if (method === "POST") {
       const body = await req.json();
