@@ -20,7 +20,7 @@ export default async (req) => {
     if (method === "POST") {
       const body = await req.json();
       const events = await readEvents();
-      const event = { id: body.id || `TG-${Date.now()}`, name:String(body.name||"").trim(), date:body.date, time:body.time, location:String(body.location||"").trim(), capacity:Number(body.capacity||0), price:Number(body.price||0), active: body.active !== false };
+      const event = { id: body.id || `TG-${Date.now()}`, name:String(body.name||"").trim(), date:body.date, time:body.time, timeEnd:body.timeEnd, location:String(body.location||"").trim(), capacity:Number(body.capacity||0), price:Number(body.price||0), active: body.active !== false };
       if (!event.name || !event.date || !event.time || !event.timeEnd || !event.location || event.capacity < 1) return json({error:"Completa los datos del evento"},400);
       events.push(event); await eventsStore().setJSON("events", events); return json(event,201);
     }
