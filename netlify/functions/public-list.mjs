@@ -14,7 +14,7 @@ export default async (req) => {
     const registrations = await registrationsStore().get("registrations", { type: "json" }) || [];
     const list = registrations
       .filter(r => r.eventId === eventId)
-      .map(r => ({ name: r.name, category: r.category, code: r.code }))
+      .map(r => ({ name: r.name, age: r.age, level: r.level, category: r.category, code: r.code }))
       .sort((a,b) => a.name.localeCompare(b.name, "es"));
 
     return json({ event: { id: event.id, name: event.name }, total: list.length, registrations: list });
