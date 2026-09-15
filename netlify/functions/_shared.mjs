@@ -9,12 +9,12 @@ export function json(data, status = 200) {
 
 export function getSession(req) {
   const cookie = req.headers.get("cookie") || "";
-  const match = cookie.match(/(?:^|;\\s*)tg_session=([^;]+)/);
+  const match = cookie.match(/(?:^|;\s*)tg_session=([^;]+)/);
   if (!match) return false;
   try {
     const value = decodeURIComponent(match[1]);
     const [exp, sig] = value.split(".");
-    const secret = Netlify.env.get("SESSION_SECRET");
+    const secret = Netlify.env.get("SESSION_SECRET") || Netlify.env.get("ADMIN_PASSWORD");
     if (!secret || !exp || !sig || Number(exp) < Date.now()) return false;
     return sig === `${secret}-${exp}`.split("").reverse().join("");
   } catch { return false; }
@@ -26,7 +26,7 @@ export async function requireSession(req) {
 
 export function sessionCookie() {
   const exp = Date.now() + 8 * 60 * 60 * 1000;
-  const secret = Netlify.env.get("SESSION_SECRET") || "treasuresgod-change-me";
+  const secret = Netlify.env.get("SESSION_SECRET") || Netlify.env.get("ADMIN_PASSWORD");
   const sig = `${secret}-${exp}`.split("").reverse().join("");
   return `tg_session=${encodeURIComponent(`${exp}.${sig}`)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=28800`;
 }
