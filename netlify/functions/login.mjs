@@ -1,0 +1,2 @@
+export default async req=>{if(req.method!=='POST')return new Response('Método no permitido',{status:405});const {password}=await req.json();const expected=Netlify.env.get('ADMIN_PASSWORD');if(!expected||password!==expected)return Response.json({error:'Contraseña incorrecta'},{status:401});const exp=Date.now()+8*60*60*1000;return new Response(JSON.stringify({ok:true}),{headers:{'Content-Type':'application/json','Set-Cookie':`tg_session=${exp}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=28800`}})};
+export const config={path:'/api/login'};
