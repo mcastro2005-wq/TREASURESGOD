@@ -21,7 +21,8 @@ export default async (req) => {
       if (!event?.photoKey) return new Response("", { status: 404 });
       const blob = await photosStore().get(event.photoKey, { type: "blob" });
       if (!blob) return new Response("", { status: 404 });
-      return new Response(blob, { status: 200, headers: { "content-type": blob.type || "image/jpeg", "cache-control": "public, max-age=300" } });
+      const contentType = event.photoType || blob.type || "image/jpeg";
+      return new Response(blob, { status: 200, headers: { "content-type": contentType, "cache-control": "no-store" } });
     }
 
     if (req.method !== "POST") return json({ error: "Método no permitido" }, 405);
@@ -37,12 +38,12 @@ export default async (req) => {
 
     const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
     const key = `${id}.${ext}`;
-    await photosStore().set(key, await file.arrayBuffer(), { metadata: { contentType: file.type } });
+    await photosStore().set(key, file, { metadata: { contentType: file.type } });
 
     const events = await eventsStore().get("events", { type: "json" }) || [];
     const i = events.findIndex(e => e.id === id);
     if (i >= 0) {
-      events[i] = { ...events[i], photoKey: key };
+      events[i] = { ...events[i], photoKey: key, photoType: file.type };
       await eventsStore().setJSON("events", events);
     }
     return json({ ok: true, photoKey: key });

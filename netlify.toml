@@ -34,3 +34,8 @@
   from = "/api/event-photo"
   to = "/.netlify/functions/event-photo"
   status = 200
+
+[[redirects]]
+  from = "/api/public-list"
+  to = "/.netlify/functions/public-list"
+  status = 200
