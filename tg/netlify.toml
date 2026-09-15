@@ -1,0 +1,41 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/events"
+  to = "/.netlify/functions/events"
+  status = 200
+
+[[redirects]]
+  from = "/api/register"
+  to = "/.netlify/functions/register"
+  status = 200
+
+[[redirects]]
+  from = "/api/login"
+  to = "/.netlify/functions/login"
+  status = 200
+
+[[redirects]]
+  from = "/api/logout"
+  to = "/.netlify/functions/logout"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin"
+  to = "/.netlify/functions/admin"
+  status = 200
+
+[[redirects]]
+  from = "/api/public-list"
+  to = "/.netlify/functions/public-list"
+  status = 200
+
+[[redirects]]
+  from = "/api/event-photo"
+  to = "/.netlify/functions/event-photo"
+  status = 200
