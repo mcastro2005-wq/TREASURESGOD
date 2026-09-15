@@ -1,15 +1,34 @@
-import { getStore } from '@netlify/blobs';
-const store=()=>getStore('treasuresgod',{consistency:'strong'});
-const defaults=[
-{id:'TG-001',name:'Carrera TreasuresGod 5K',date:'2026-10-18',time:'08:00',location:'Lima',capacity:300,price:35,description:'Carrera 5K abierta a todos los niveles.'},
-{id:'TG-002',name:'Torneo TreasuresGod',date:'2026-11-08',time:'09:00',location:'Lima',capacity:120,price:50,description:'Torneo deportivo TreasuresGod.'},
-{id:'TG-003',name:'Caminata Familiar',date:'2026-12-06',time:'08:30',location:'Lima',capacity:250,price:25,description:'Actividad deportiva para toda la familia.'}];
-async function read(){let x=await store().get('events',{type:'json'});if(!x){await store().setJSON('events',defaults);return defaults}return x}
-function auth(req){return req.headers.get('cookie')?.includes('tg_session=')}
-export default async req=>{try{const u=new URL(req.url),method=req.method;let events=await read();if(method==='GET')return Response.json(events);
-if(!auth(req))return new Response('No autorizado',{status:401});
-if(method==='POST'){const b=await req.json();const e={id:b.id||`TG-${Date.now().toString().slice(-6)}`,...b,capacity:Number(b.capacity),price:Number(b.price)};events.push(e);await store().setJSON('events',events);return Response.json(e,{status:201})}
-if(method==='PUT'){const b=await req.json();events=events.map(e=>e.id===b.id?{...e,...b,capacity:Number(b.capacity),price:Number(b.price)}:e);await store().setJSON('events',events);return Response.json({ok:true})}
-if(method==='DELETE'){const id=u.searchParams.get('id');events=events.filter(e=>e.id!==id);await store().setJSON('events',events);return Response.json({ok:true})}
-return new Response('Método no permitido',{status:405})}catch(e){return Response.json({error:e.message},{status:500})}}
-export const config={path:'/api/events'};
+import { eventsStore, defaultEvents, json, requireSession } from "./_shared.mjs";
+
+async function readEvents() {
+  const store = eventsStore();
+  const data = await store.get("events", { type: "json" });
+  if (Array.isArray(data)) return data;
+  await store.setJSON("events", defaultEvents);
+  return defaultEvents;
+}
+
+export default async (req) => {
+  try {
+    const method = req.method.toUpperCase();
+    if (method === "GET") return json(await readEvents());
+    if (!(await requireSession(req))) return json({ error: "No autorizado" }, 401);
+    if (method === "POST") {
+      const body = await req.json();
+      const events = await readEvents();
+      const event = { id: body.id || `TG-${Date.now()}`, name:String(body.name||"").trim(), date:body.date, time:body.time, location:String(body.location||"").trim(), capacity:Number(body.capacity||0), price:Number(body.price||0), active: body.active !== false };
+      if (!event.name || !event.date || !event.time || !event.location || event.capacity < 1) return json({error:"Completa los datos del evento"},400);
+      events.push(event); await eventsStore().setJSON("events", events); return json(event,201);
+    }
+    if (method === "PUT") {
+      const body = await req.json(); const events = await readEvents(); const i=events.findIndex(e=>e.id===body.id);
+      if(i<0) return json({error:"Evento no encontrado"},404);
+      events[i]={...events[i],...body,capacity:Number(body.capacity),price:Number(body.price)}; await eventsStore().setJSON("events",events); return json(events[i]);
+    }
+    if (method === "DELETE") {
+      const url=new URL(req.url); const id=url.searchParams.get("id"); const events=await readEvents(); const next=events.filter(e=>e.id!==id);
+      if(next.length===events.length) return json({error:"Evento no encontrado"},404); await eventsStore().setJSON("events",next); return json({ok:true});
+    }
+    return json({error:"Método no permitido"},405);
+  } catch (e) { console.error(e); return json({error:"Error interno", detail:e.message},500); }
+};

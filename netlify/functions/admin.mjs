@@ -1,3 +1,11 @@
-import {getStore} from '@netlify/blobs';const s=()=>getStore('treasuresgod',{consistency:'strong'});const ok=r=>r.headers.get('cookie')?.includes('tg_session=');
-export default async req=>{if(!ok(req))return Response.json({error:'No autorizado'},{status:401});try{const method=req.method;let rows=await s().get('registrations',{type:'json'})||[];if(method==='GET'){const events=await s().get('events',{type:'json'})||[];return Response.json({registrations:rows,events})}if(method==='PATCH'){const b=await req.json();rows=rows.map(r=>r.code===b.code?{...r,paymentStatus:b.paymentStatus}:r);await s().setJSON('registrations',rows);return Response.json({ok:true})}if(method==='DELETE'){const u=new URL(req.url),code=u.searchParams.get('code');rows=rows.filter(r=>r.code!==code);await s().setJSON('registrations',rows);return Response.json({ok:true})}return new Response('Método no permitido',{status:405})}catch(e){return Response.json({error:e.message},{status:500})}};
-export const config={path:'/api/admin'};
+import { registrationsStore, eventsStore, json, requireSession } from "./_shared.mjs";
+export default async (req) => {
+  if (!(await requireSession(req))) return json({error:"No autorizado"},401);
+  try {
+    const store=registrationsStore(); const list=await store.get("registrations",{type:"json"}) || [];
+    if(req.method==="GET") { const events=await eventsStore().get("events",{type:"json"}) || []; return json({registrations:list,events}); }
+    if(req.method==="PATCH") { const b=await req.json(); const i=list.findIndex(r=>r.code===b.code); if(i<0)return json({error:"Inscripción no encontrada"},404); list[i].paymentStatus=b.paymentStatus; await store.setJSON("registrations",list); return json(list[i]); }
+    if(req.method==="DELETE") { const u=new URL(req.url); const code=u.searchParams.get("code"); const next=list.filter(r=>r.code!==code); if(next.length===list.length)return json({error:"Inscripción no encontrada"},404); await store.setJSON("registrations",next); return json({ok:true}); }
+    return json({error:"Método no permitido"},405);
+  } catch(e){console.error(e);return json({error:"Error interno",detail:e.message},500)}
+};
