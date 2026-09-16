@@ -20,14 +20,14 @@ export default async (req) => {
     if (method === "POST") {
       const body = await req.json();
       const events = await readEvents();
-      const event = { id: body.id || `TG-${Date.now()}`, name:String(body.name||"").trim(), date:body.date, time:body.time, timeEnd:body.timeEnd, location:String(body.location||"").trim(), capacity:Number(body.capacity||0), price:Number(body.price||0), active: body.active !== false };
+      const event = { id: body.id || `TG-${Date.now()}`, name:String(body.name||"").trim().toUpperCase(), date:body.date, time:body.time, timeEnd:body.timeEnd, location:String(body.location||"").trim().toUpperCase(), capacity:Number(body.capacity||0), price:Number(body.price||0), comment:String(body.comment||"").trim(), active: body.active !== false };
       if (!event.name || !event.date || !event.time || !event.timeEnd || !event.location || event.capacity < 1) return json({error:"Completa los datos del evento"},400);
       events.push(event); await eventsStore().setJSON("events", events); return json(event,201);
     }
     if (method === "PUT") {
       const body = await req.json(); const events = await readEvents(); const i=events.findIndex(e=>e.id===body.id);
       if(i<0) return json({error:"Evento no encontrado"},404);
-      events[i]={...events[i],...body,timeEnd:body.timeEnd || "",capacity:Number(body.capacity),price:Number(body.price)}; await eventsStore().setJSON("events",events); return json(events[i]);
+      events[i]={...events[i],...body,name:String(body.name||events[i].name||"").trim().toUpperCase(),location:String(body.location||events[i].location||"").trim().toUpperCase(),comment:String(body.comment??events[i].comment??"").trim(),timeEnd:body.timeEnd || "",capacity:Number(body.capacity),price:Number(body.price)}; await eventsStore().setJSON("events",events); return json(events[i]);
     }
     if (method === "DELETE") {
       const url=new URL(req.url); const id=url.searchParams.get("id"); const events=await readEvents(); const next=events.filter(e=>e.id!==id);

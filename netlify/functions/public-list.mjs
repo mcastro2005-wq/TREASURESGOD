@@ -17,7 +17,7 @@ export default async (req) => {
       .map(r => ({ name: r.name, age: r.age, level: r.level, category: r.category, code: r.code }))
       .sort((a,b) => a.name.localeCompare(b.name, "es"));
 
-    return json({ event: { id: event.id, name: event.name }, total: list.length, registrations: list });
+    return json({ event: { id: event.id, name: event.name, capacity: Number(event.capacity || 0), date: event.date, time: event.time, timeEnd: event.timeEnd, location: event.location, comment: event.comment || "" }, total: list.length, registrations: list });
   } catch (e) {
     console.error(e);
     return json({ error: "No se pudo cargar la lista" }, 500);
