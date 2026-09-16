@@ -45,7 +45,7 @@ export default async (req) => {
     const age = Number(body.age);
     if (!Number.isInteger(age) || age < 1 || age > 100) return json({ error: "La edad debe estar entre 1 y 100 años" }, 400);
 
-    const allowedLevels = ["Iniciación", "Intermedio", "Avanzado"];
+    const allowedLevels = ["Básico", "Intermedio", "Avanzado"];
     if (!allowedLevels.includes(String(body.level).trim())) return json({ error: "Selecciona un nivel válido" }, 400);
 
     const registration = {
@@ -72,6 +72,33 @@ export default async (req) => {
 
     list.push(registration);
     await store.setJSON("registrations", list);
+
+    // La inscripción no debe fallar si el proveedor push está temporalmente caído.
+    try {
+      const apiKey = Netlify.env.get("ONESIGNAL_API_KEY");
+      if (apiKey) {
+        const push = await fetch("https://api.onesignal.com/notifications", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "authorization": `Key ${apiKey}`
+          },
+          body: JSON.stringify({
+            app_id: "c7196a39-f43f-40c1-a4a8-bafeadbafd10",
+            filters: [{ field: "tag", key: "role", relation: "=", value: "admin" }],
+            headings: { es: "TREASURESGOD · Nueva inscripción", en: "TREASURESGOD · Nueva inscripción" },
+            contents: { es: `${registration.name} · ${event.name} · ${registration.level} · ${registration.category}`, en: `${registration.name} · ${event.name} · ${registration.level} · ${registration.category}` },
+            url: "https://treasuresgod.netlify.app/admin.html"
+          })
+        });
+        if (!push.ok) console.error("OneSignal:", push.status, await push.text());
+      } else {
+        console.error("ONESIGNAL_API_KEY no configurada");
+      }
+    } catch (pushError) {
+      console.error("No se pudo enviar la notificación push", pushError);
+    }
+
     return json({ ...registration, remaining: Math.max(0, capacity - count - 1) }, 201);
   } catch (e) {
     console.error(e);

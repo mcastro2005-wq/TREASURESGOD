@@ -39,3 +39,8 @@
   from = "/api/public-list"
   to = "/.netlify/functions/public-list"
   status = 200
+
+[[redirects]]
+  from = "/api/push-test"
+  to = "/.netlify/functions/push-test"
+  status = 200

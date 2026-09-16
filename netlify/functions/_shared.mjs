@@ -35,7 +35,7 @@ export const eventsStore = () => getStore("treasuresgod-events", { consistency: 
 export const registrationsStore = () => getStore("treasuresgod-registrations", { consistency: "strong" });
 
 export const defaultEvents = [
-  { id:"TG-001", name:"Carrera TreasuresGod 5K", date:"2026-10-18", time:"08:00", timeEnd:"10:00", location:"Lima", capacity:300, price:35, active:true },
-  { id:"TG-002", name:"Torneo TreasuresGod", date:"2026-11-08", time:"09:00", timeEnd:"13:00", location:"Lima", capacity:120, price:50, active:true },
-  { id:"TG-003", name:"Caminata Familiar", date:"2026-12-06", time:"08:30", timeEnd:"11:30", location:"Lima", capacity:250, price:25, active:true }
+  { id:"TG-001", name:"CARRERA TREASURESGOD 5K", date:"2026-10-18", time:"08:00", timeEnd:"10:00", location:"LIMA", capacity:300, price:35, comment:"Participa en una jornada deportiva para toda la familia.", active:true },
+  { id:"TG-002", name:"TORNEO TREASURESGOD", date:"2026-11-08", time:"09:00", timeEnd:"13:00", location:"LIMA", capacity:120, price:50, comment:"Torneo deportivo con inscripción previa.", active:true },
+  { id:"TG-003", name:"CAMINATA FAMILIAR", date:"2026-12-06", time:"08:30", timeEnd:"11:30", location:"LIMA", capacity:250, price:25, comment:"Actividad familiar abierta a todos.", active:true }
 ];
