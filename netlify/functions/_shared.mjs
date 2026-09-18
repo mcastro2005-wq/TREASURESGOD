@@ -7,28 +7,39 @@ export function json(data, status = 200) {
   });
 }
 
-export function getSession(req) {
-  const cookie = req.headers.get("cookie") || "";
-  const match = cookie.match(/(?:^|;\s*)tg_session=([^;]+)/);
-  if (!match) return false;
+export function createSessionToken() {
+  const exp = Date.now() + 8 * 60 * 60 * 1000;
+  const secret = Netlify.env.get("SESSION_SECRET") || Netlify.env.get("ADMIN_PASSWORD") || Netlify.env.get("admin_password");
+  if (!secret) throw new Error("Falta SESSION_SECRET o ADMIN_PASSWORD");
+  const sig = `${secret}-${exp}`.split("").reverse().join("");
+  return `${exp}.${sig}`;
+}
+
+function validateSessionToken(value) {
   try {
-    const value = decodeURIComponent(match[1]);
-    const [exp, sig] = value.split(".");
-    const secret = Netlify.env.get("SESSION_SECRET") || Netlify.env.get("ADMIN_PASSWORD");
+    const [exp, sig] = String(value || "").split(".");
+    const secret = Netlify.env.get("SESSION_SECRET") || Netlify.env.get("ADMIN_PASSWORD") || Netlify.env.get("admin_password");
     if (!secret || !exp || !sig || Number(exp) < Date.now()) return false;
     return sig === `${secret}-${exp}`.split("").reverse().join("");
   } catch { return false; }
+}
+
+export function getSession(req) {
+  const auth = req.headers.get("authorization") || "";
+  const bearer = auth.match(/^Bearer\s+(.+)$/i);
+  if (bearer && validateSessionToken(bearer[1])) return true;
+  const cookie = req.headers.get("cookie") || "";
+  const match = cookie.match(/(?:^|;\s*)tg_session=([^;]+)/);
+  if (!match) return false;
+  try { return validateSessionToken(decodeURIComponent(match[1])); } catch { return false; }
 }
 
 export async function requireSession(req) {
   return getSession(req);
 }
 
-export function sessionCookie() {
-  const exp = Date.now() + 8 * 60 * 60 * 1000;
-  const secret = Netlify.env.get("SESSION_SECRET") || Netlify.env.get("ADMIN_PASSWORD");
-  const sig = `${secret}-${exp}`.split("").reverse().join("");
-  return `tg_session=${encodeURIComponent(`${exp}.${sig}`)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=28800`;
+export function sessionCookie(token = createSessionToken()) {
+  return `tg_session=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=28800`;
 }
 
 export const eventsStore = () => getStore("treasuresgod-events", { consistency: "strong" });

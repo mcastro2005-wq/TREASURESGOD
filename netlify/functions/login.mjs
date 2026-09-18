@@ -1,4 +1,4 @@
-import { json, sessionCookie } from "./_shared.mjs";
+import { json, sessionCookie, createSessionToken } from "./_shared.mjs";
 export default async (req) => {
   if (req.method !== "POST") return json({error:"Método no permitido"},405);
   const { password } = await req.json();
@@ -6,5 +6,6 @@ export default async (req) => {
   const legacy = Netlify.env.get("admin_password");
   const valid = typeof password === "string" && ((expected && password === expected) || (legacy && password === legacy));
   if (!valid) return json({error:"Contraseña incorrecta"},401);
-  return new Response(JSON.stringify({ok:true}), { status:200, headers:{"content-type":"application/json; charset=utf-8","set-cookie":sessionCookie()} });
+  const token = createSessionToken();
+  return new Response(JSON.stringify({ok:true, token}), { status:200, headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","set-cookie":sessionCookie(token)} });
 };
