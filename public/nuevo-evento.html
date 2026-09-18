@@ -4,7 +4,7 @@ const tgNativeFetch=window.fetch.bind(window);
 window.fetch=(input,init={})=>{
   const url=typeof input==='string'?input:(input&&input.url)||'';
   if(url.startsWith('/api/')){
-    const token=sessionStorage.getItem(TG_TOKEN_KEY);
+    const token=localStorage.getItem(TG_TOKEN_KEY);
     if(token){
       const headers=new Headers(init.headers||(typeof input!=='string'&&input.headers)||{});
       headers.set('Authorization','Bearer '+token);
