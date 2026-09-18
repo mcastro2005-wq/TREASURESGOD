@@ -21,6 +21,7 @@ export default async (req) => {
     }
 
     const required = ["eventId", "name", "dni", "phone", "email", "age", "level", "category", "paymentMethod"];
+    if (String(body.rulesAccepted||"") !== "yes") return json({ error: "Debes leer y aceptar las reglas antes de inscribirte" }, 400);
     if (required.some(k => !String(body[k] ?? "").trim())) {
       return json({ error: "Completa todos los campos obligatorios" }, 400);
     }
@@ -28,6 +29,7 @@ export default async (req) => {
     const events = await eventsStore().get("events", { type: "json" }) || [];
     const event = events.find(e => e.id === body.eventId && e.active !== false);
     if (!event) return json({ error: "Evento no encontrado o no disponible" }, 404);
+    if (["Suspendido por falta de quórum","Cancelado","Realizado"].includes(event.status)) return json({ error: "Este evento no admite nuevas inscripciones" }, 409);
 
     const store = registrationsStore();
     const list = await store.get("registrations", { type: "json" }) || [];
@@ -63,7 +65,12 @@ export default async (req) => {
       paymentMethod: String(body.paymentMethod).trim(),
       paymentReference: String(body.paymentReference || "").trim(),
       paymentStatus: "Pendiente",
-      hasReceipt: Boolean(receipt)
+      roleStatus: "Jugador inscrito",
+      confirmationStatus: "Pendiente",
+      disciplineStatus: "Sin amonestación",
+      hasReceipt: Boolean(receipt),
+      rulesAccepted: true,
+      rulesAcceptedAt: new Date().toISOString()
     };
 
     if (receipt) {

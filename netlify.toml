@@ -44,3 +44,8 @@
   from = "/api/push-test"
   to = "/.netlify/functions/push-test"
   status = 200
+
+[[redirects]]
+  from = "/api/settings"
+  to = "/.netlify/functions/settings"
+  status = 200

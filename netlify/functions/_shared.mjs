@@ -28,11 +28,13 @@ export function sessionCookie() {
   const exp = Date.now() + 8 * 60 * 60 * 1000;
   const secret = Netlify.env.get("SESSION_SECRET") || Netlify.env.get("ADMIN_PASSWORD");
   const sig = `${secret}-${exp}`.split("").reverse().join("");
-  return `tg_session=${encodeURIComponent(`${exp}.${sig}`)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=28800`;
+  return `tg_session=${encodeURIComponent(`${exp}.${sig}`)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=28800`;
 }
 
 export const eventsStore = () => getStore("treasuresgod-events", { consistency: "strong" });
 export const registrationsStore = () => getStore("treasuresgod-registrations", { consistency: "strong" });
+export const settingsStore = () => getStore("treasuresgod-settings", { consistency: "strong" });
+export const defaultSettings = { clubName:"TREASURESGOD SPORTING VOLEY CLUB", generalRules:"", admin:{ firstName:"Milton", lastName:"Castro", email:"", phone:"", publicRole:"Promotor/Presidente" } };
 
 export const defaultEvents = [
   { id:"TG-001", name:"CARRERA TREASURESGOD 5K", date:"2026-10-18", time:"08:00", timeEnd:"10:00", location:"LIMA", capacity:300, price:35, comment:"Participa en una jornada deportiva para toda la familia.", active:true },
