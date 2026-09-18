@@ -59,7 +59,7 @@ export default async (req) => {
       email: String(body.email).trim(),
       age,
       level: String(body.level).trim(),
-      category: String(body.category).trim(),
+      category: Number(body.age) <= 29 ? 'Junior' : Number(body.age) <= 39 ? 'Senior' : 'Master',
       paymentMethod: String(body.paymentMethod).trim(),
       paymentReference: String(body.paymentReference || "").trim(),
       paymentStatus: "Pendiente",
@@ -88,7 +88,7 @@ export default async (req) => {
             filters: [{ field: "tag", key: "role", relation: "=", value: "admin" }],
             headings: { es: "TREASURESGOD · Nueva inscripción", en: "TREASURESGOD · Nueva inscripción" },
             contents: { es: `${registration.name} · ${event.name} · ${registration.level} · ${registration.category}`, en: `${registration.name} · ${event.name} · ${registration.level} · ${registration.category}` },
-            url: "https://treasuresgod.netlify.app/admin.html"
+            url: `https://treasuresgod.netlify.app/admin.html?evento=${encodeURIComponent(event.id)}#inscritosAdmin`
           })
         });
         if (!push.ok) console.error("OneSignal:", push.status, await push.text());
