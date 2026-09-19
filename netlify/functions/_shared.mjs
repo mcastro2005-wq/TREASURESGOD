@@ -45,6 +45,8 @@ export function sessionCookie(token = createSessionToken()) {
 export const eventsStore = () => getStore("treasuresgod-events", { consistency: "strong" });
 export const registrationsStore = () => getStore("treasuresgod-registrations", { consistency: "strong" });
 export const settingsStore = () => getStore("treasuresgod-settings", { consistency: "strong" });
+export const membersStore = () => getStore("treasuresgod-members", { consistency: "strong" });
+export const memberFilesStore = () => getStore("treasuresgod-member-files", { consistency: "strong" });
 export const defaultSettings = { clubName:"TREASURESGOD SPORTING VOLEY CLUB", generalRules:"", admin:{ firstName:"Milton", lastName:"Castro", email:"", phone:"", publicRole:"Promotor/Presidente" } };
 
 export const defaultEvents = [

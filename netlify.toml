@@ -49,3 +49,13 @@
   from = "/api/settings"
   to = "/.netlify/functions/settings"
   status = 200
+
+[[redirects]]
+  from = "/api/members"
+  to = "/.netlify/functions/members"
+  status = 200
+
+[[redirects]]
+  from = "/api/member-photo"
+  to = "/.netlify/functions/member-photo"
+  status = 200
