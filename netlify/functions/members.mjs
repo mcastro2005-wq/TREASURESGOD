@@ -54,7 +54,7 @@ export default async req => {
             body: JSON.stringify({
               app_id:"c7196a39-f43f-40c1-a4a8-bafeadbafd10",
               filters:[{field:"tag",key:"role",relation:"=",value:"admin"}],
-              headings:{es:"🏐 NUEVO MIEMBRO – TREASURESGOD",en:"🏐 NUEVO MIEMBRO – TREASURESGOD"},
+              headings:{es:"TREASURESGOD · Nuevo miembro",en:"TREASURESGOD · Nuevo miembro"},
               contents:{es:`${member.name} se inscribió al grupo · Nivel: ${member.level} · Categoría: ${member.category} · Inscripción: Pendiente`,en:`${member.name} se inscribió al grupo · Nivel: ${member.level} · Categoría: ${member.category} · Inscripción: Pendiente`},
               url:"https://treasuresgod.netlify.app/admin.html#miembrosAdmin"
             })
