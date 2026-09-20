@@ -44,26 +44,49 @@ export default async req => {
       await memberFilesStore().set(`${code}-dni`,await dniPhoto.arrayBuffer(),{metadata:{contentType:dniPhoto.type}});
       list.push(member); await store.setJSON("members",list);
 
-      // La inscripción del miembro no debe fallar si OneSignal está temporalmente caído.
+      // Push de nuevo miembro: usa exactamente el mismo canal y segmentación que las inscripciones a eventos.
+      // Además registra el resultado del proveedor para poder diagnosticar fallos reales sin exponer la clave.
+      let pushDelivery = { attempted:false, ok:false, status:null, recipients:null };
       try {
         const apiKey = Netlify.env.get("ONESIGNAL_API_KEY");
         if (apiKey) {
-          const push = await fetch("https://api.onesignal.com/notifications", {
+          pushDelivery.attempted = true;
+          const payload = {
+            app_id: "c7196a39-f43f-40c1-a4a8-bafeadbafd10",
+            filters: [{ field: "tag", key: "role", relation: "=", value: "admin" }],
+            headings: { es: "TREASURESGOD · Nuevo miembro", en: "TREASURESGOD · Nuevo miembro" },
+            contents: {
+              es: `${member.name} se inscribió al grupo · Nivel: ${member.level} · Categoría: ${member.category} · Inscripción: Pendiente`,
+              en: `${member.name} se inscribió al grupo · Nivel: ${member.level} · Categoría: ${member.category} · Inscripción: Pendiente`
+            },
+            url: "https://treasuresgod.netlify.app/admin.html#miembrosAdmin"
+          };
+          const send = () => fetch("https://api.onesignal.com/notifications", {
             method: "POST",
-            headers: {"content-type":"application/json","authorization":`Key ${apiKey}`},
-            body: JSON.stringify({
-              app_id:"c7196a39-f43f-40c1-a4a8-bafeadbafd10",
-              filters:[{field:"tag",key:"role",relation:"=",value:"admin"}],
-              headings:{es:"TREASURESGOD · Nuevo miembro",en:"TREASURESGOD · Nuevo miembro"},
-              contents:{es:`${member.name} se inscribió al grupo · Nivel: ${member.level} · Categoría: ${member.category} · Inscripción: Pendiente`,en:`${member.name} se inscribió al grupo · Nivel: ${member.level} · Categoría: ${member.category} · Inscripción: Pendiente`},
-              url:"https://treasuresgod.netlify.app/admin.html#miembrosAdmin"
-            })
+            headers: {
+              "content-type": "application/json",
+              "authorization": `Key ${apiKey}`
+            },
+            body: JSON.stringify(payload)
           });
-          if (!push.ok) console.error("OneSignal miembro:",push.status,await push.text());
+          let push = await send();
+          // Reintento único únicamente ante error del proveedor/red; no duplica un envío aceptado.
+          if (!push.ok && push.status >= 500) push = await send();
+          pushDelivery.status = push.status;
+          let provider = {};
+          try { provider = await push.json(); } catch { provider = {}; }
+          pushDelivery.ok = push.ok;
+          if (Number.isFinite(Number(provider.recipients))) pushDelivery.recipients = Number(provider.recipients);
+          if (!push.ok) console.error("OneSignal miembro:", push.status, JSON.stringify(provider));
+          else console.log("OneSignal miembro enviado:", JSON.stringify({status:push.status,recipients:pushDelivery.recipients,id:provider.id||null}));
+        } else {
+          console.error("ONESIGNAL_API_KEY no configurada para nuevo miembro");
         }
-      } catch(pushError) { console.error("No se pudo enviar la notificación de nuevo miembro",pushError); }
+      } catch(pushError) {
+        console.error("No se pudo enviar la notificación de nuevo miembro", pushError);
+      }
 
-      return json({ok:true,member:safeMember(member)},201);
+      return json({ok:true,member:safeMember(member),pushDelivery},201);
     }
 
     if(!(await requireSession(req))) return json({error:"No autorizado"},401);
