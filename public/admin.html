@@ -124,8 +124,8 @@ function makeEventXlsx(id){
  const blob=zipStore(files);return new File([blob],`inscritos-${safeFile(e.name)}.xlsx`,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
 }
 function exportExcel(id){const f=makeEventXlsx(id);if(!f)return;const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000)}
-function excelFile(id){return makeEventXlsx(id)}
-async function shareExcel(id){const f=excelFile(id);if(!f)return;if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:'Lista de inscritos TREASURESGOD'});return}catch(e){if(e?.name==='AbortError')return}}const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);alert('El Excel fue descargado. Puedes adjuntarlo en WhatsApp.')}
+function eventExcelFile(id){return makeEventXlsx(id)}
+async function shareExcel(id){const f=eventExcelFile(id);if(!f)return;if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:'Lista de inscritos TREASURESGOD'});return}catch(e){if(e?.name==='AbortError')return}}const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);alert('El Excel fue descargado. Puedes adjuntarlo en WhatsApp.')}
 function pdfAscii(v){return String(v??'').replace(/[–—]/g,'-').replace(/·/g,'-').replace(/[^\x20-\x7EÀ-ÿ]/g,'')}
 function pdfSafeText(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,' ').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)')}
 function buildNativePdf(pages){
@@ -150,7 +150,7 @@ function buildNativePdf(pages){
  pdf+=`trailer\n<< /Size ${objs.length+1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`;
  return new Blob([enc.encode(pdf)],{type:'application/pdf'})
 }
-async function makePdfFile(id){
+function makePdfFile(id){
  try{
   const e=eventInfo(id),rows=eventExportRows(id);if(!e)return null;
   const club=(dataCache.settings?.clubName||'TREASURESGOD SPORTING VOLEY CLUB').toUpperCase();
@@ -183,10 +183,8 @@ async function makePdfFile(id){
   return new File([blob],`inscritos-${safeFile(e.name)}.pdf`,{type:'application/pdf'});
  }catch(err){console.error('PDF evento:',err);alert('No se pudo generar el PDF: '+(err?.message||'error'));return null}
 }
-async function exportPDF(id){const f=await makePdfFile(id);if(!f)return;const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000)}
-async function sharePdf(id){const f=await makePdfFile(id);if(!f)return;if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:'Lista de inscritos TREASURESGOD'});return}catch(e){if(e?.name==='AbortError')return}}const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);alert('El PDF fue descargado. Puedes adjuntarlo en WhatsApp.')}
-function excelFile(id){const e=eventInfo(id),html=eventExcelHtml(id);if(!e||!html)return null;return new File(['\ufeff'+html],`inscritos-${safeFile(e.name)}.xls`,{type:'application/vnd.ms-excel'})}
-async function shareExcel(id){const f=excelFile(id);if(!f)return;if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:'Lista de inscritos TREASURESGOD'})}catch(e){if(e?.name!=='AbortError')alert('No se pudo compartir el Excel.')}}else{downloadBlob(f.name,f.type,await f.text());alert('El archivo Excel fue descargado. Puedes adjuntarlo en WhatsApp.')}}
+function exportPDF(id){const f=makePdfFile(id);if(!f)return;try{const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),15000)}catch(e){console.error(e);alert('No se pudo iniciar la descarga del PDF.')}}
+async function sharePdf(id){const f=makePdfFile(id);if(!f)return;if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:'Lista de inscritos TREASURESGOD'});return}catch(e){if(e?.name==='AbortError')return}}const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);alert('El PDF fue descargado. Puedes adjuntarlo en WhatsApp.')}
 function shareListWA(id){window.open('https://wa.me/?text='+encodeURIComponent(listText(id)),'_blank')}
 function exportMenu(id){const e=eventInfo(id);if(!e)return;const box=document.createElement('div');box.style='position:fixed;inset:0;background:#0008;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';box.innerHTML=`<div style="background:#fff;border-radius:14px;padding:22px;max-width:390px;width:100%;box-shadow:0 10px 35px #0004"><h3 style="margin-top:0">📤 EXPORTAR LISTA</h3><p class="hint">${esc(String(e.name).toUpperCase())} · ${eventRows(id).length} inscritos</p><div style="display:grid;gap:8px"><button>📄 Descargar texto</button><button>📊 Descargar Excel</button><button>📕 Descargar PDF</button><button>📲 Compartir PDF</button><button>📲 Compartir Excel</button><button>💬 Enviar lista por WhatsApp</button><button class="danger">Cerrar</button></div></div>`;const b=box.querySelectorAll('button');b[0].onclick=()=>{exportText(id);box.remove()};b[1].onclick=()=>{exportExcel(id);box.remove()};b[2].onclick=()=>{exportPDF(id);box.remove()};b[3].onclick=()=>{sharePdf(id);box.remove()};b[4].onclick=()=>{shareExcel(id);box.remove()};b[5].onclick=()=>{shareListWA(id);box.remove()};b[6].onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};document.body.appendChild(box)}
 function copySiteLink(){const url=location.origin;navigator.clipboard?.writeText(url).then(()=>alert('Enlace copiado: '+url)).catch(()=>prompt('Copia este enlace:',url))}function openSiteQR(){window.open('/qr-web.html','_blank')}
