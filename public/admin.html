@@ -93,52 +93,98 @@ function eventExportRows(id){return eventRows(id).map((x,i)=>({
  payment:x.paymentStatus||'Pendiente',type:x.roleStatus||'Jugador inscrito',
  confirmation:x.confirmationStatus||'Pendiente',code:x.code||''
 }))}
-function eventExcelHtml(id){
- const e=eventInfo(id),rows=eventExportRows(id);if(!e)return '';
- const x=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
- const club=(dataCache.settings?.clubName||'TREASURESGOD SPORTING VOLEY CLUB').toUpperCase();
- const an=[dataCache.settings?.admin?.firstName,dataCache.settings?.admin?.lastName].filter(Boolean).join(' ').toUpperCase();
- const warned=eventRows(id).filter(v=>disciplineIcon(v.disciplineStatus));
- const trs=rows.map(r=>`<tr><td>${r.n}</td><td>${x(r.name)}</td><td>${x(r.age)}</td><td>${x(r.level)}</td><td>${x(r.category)}</td><td>${x(r.payment)}</td><td>${x(r.type)}</td><td>${x(r.confirmation)}</td><td>${x(r.code)}</td></tr>`).join('');
- const warn=warned.length?`<tr><td colspan="9" class="section">JUGADORES AMONESTADOS</td></tr>${warned.map(v=>`<tr><td colspan="9">${v.disciplineStatus==='Tarjeta roja'?'ROJA':'AMARILLA'} - ${x(v.name)}</td></tr>`).join('')}`:'';
- return `<html><head><meta charset="utf-8"><style>
- body{font-family:Arial,sans-serif}.title{font-size:18pt;font-weight:bold}.event{font-size:15pt;font-weight:bold}.meta{font-size:10pt}
- table{border-collapse:collapse;margin-top:12px}th{background:#d9eaf7;font-weight:bold;text-align:center}th,td{border:1px solid #7f8c8d;padding:6px}.section{font-weight:bold;background:#fff2cc}
- </style></head><body><div class="title">${x(club)}</div><div class="event">${x(String(e.name||'').toUpperCase())} - LISTA DE INSCRITOS</div>
- <div class="meta">Fecha: ${x(fecha(e.date))}<br>Horario: ${x(e.time||'')}${e.timeEnd?' - '+x(e.timeEnd):''}<br>Lugar: ${x(String(e.location||'').toUpperCase())}<br>Inscritos: ${rows.length} de ${x(e.capacity||'')}<br>${an?'Promotor: '+x(an):''}</div>
- <table><tr><th>N°</th><th>Nombre</th><th>Edad</th><th>Nivel</th><th>Categoría</th><th>Pago</th><th>Tipo</th><th>Confirmación</th><th>Código</th></tr>${trs}${warn}</table>
- <p><b>LEYENDA</b><br>PAGO: Pagado / Pendiente<br>TIPO: Jugador inscrito / Invitado / Promotor-Presidente / Delegado<br>CONFIRMACIÓN: Confirmó / No confirmó / Pendiente</p></body></html>`;
+function xmlEsc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function crc32(bytes){let c=0xffffffff;for(const b of bytes){c^=b;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0)}return(c^0xffffffff)>>>0}
+function u16(n){return new Uint8Array([n&255,(n>>>8)&255])}function u32(n){return new Uint8Array([n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255])}
+function concatBytes(parts){let n=parts.reduce((a,b)=>a+b.length,0),o=new Uint8Array(n),p=0;for(const b of parts){o.set(b,p);p+=b.length}return o}
+function zipStore(files){const enc=new TextEncoder(),locals=[],centrals=[];let off=0;for(const [name,data] of files){const nb=enc.encode(name),db=typeof data==='string'?enc.encode(data):data,crc=crc32(db);const lh=concatBytes([u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(db.length),u32(db.length),u16(nb.length),u16(0),nb,db]);locals.push(lh);const ch=concatBytes([u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(db.length),u32(db.length),u16(nb.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(off),nb]);centrals.push(ch);off+=lh.length}const cd=concatBytes(centrals),body=concatBytes(locals);const end=concatBytes([u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cd.length),u32(body.length),u16(0)]);return new Blob([body,cd,end],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
+function xlsxCell(ref,value,style=0,type='inlineStr'){if(type==='n')return `<c r="${ref}" s="${style}"><v>${Number(value)||0}</v></c>`;return `<c r="${ref}" s="${style}" t="inlineStr"><is><t>${xmlEsc(value)}</t></is></c>`}
+function makeEventXlsx(id){
+ const e=eventInfo(id),rows=eventExportRows(id);if(!e)return null;
+ const club=(dataCache.settings?.clubName||'TREASURESGOD SPORTING VOLEY CLUB').toUpperCase(),an=[dataCache.settings?.admin?.firstName,dataCache.settings?.admin?.lastName].filter(Boolean).join(' ').toUpperCase();
+ const cols=['A','B','C','D','E','F','G','H','I'];let rr=[];
+ rr.push(`<row r="1" ht="25">${xlsxCell('A1',club,1)}</row>`);
+ rr.push(`<row r="2" ht="22">${xlsxCell('A2',String(e.name||'').toUpperCase()+' - LISTA DE INSCRITOS',2)}</row>`);
+ rr.push(`<row r="3">${xlsxCell('A3','Fecha: '+fecha(e.date),3)}${xlsxCell('C3','Horario: '+(e.time||'')+(e.timeEnd?' - '+e.timeEnd:''),3)}${xlsxCell('F3','Lugar: '+String(e.location||'').toUpperCase(),3)}</row>`);
+ rr.push(`<row r="4">${xlsxCell('A4','Inscritos: '+rows.length+' de '+(e.capacity||''),3)}${xlsxCell('F4',an?'Promotor: '+an:'',3)}</row>`);
+ rr.push('<row r="6">'+['N°','Nombre','Edad','Nivel','Categoría','Pago','Tipo','Confirmación','Código'].map((h,i)=>xlsxCell(cols[i]+'6',h,4)).join('')+'</row>');
+ let rn=7;
+ rows.forEach(r=>{const vals=[r.n,r.name,r.age,r.level,r.category,r.payment,r.type,r.confirmation,r.code];rr.push(`<row r="${rn}">`+vals.map((v,i)=>xlsxCell(cols[i]+rn,v,5,(i===0||i===2)?'n':'inlineStr')).join('')+'</row>');rn++});
+ const warned=eventRows(id).filter(v=>disciplineIcon(v.disciplineStatus));if(warned.length){rn++;rr.push(`<row r="${rn}">${xlsxCell('A'+rn,'JUGADORES AMONESTADOS',6)}</row>`);rn++;warned.forEach(v=>{rr.push(`<row r="${rn}">${xlsxCell('A'+rn,(v.disciplineStatus==='Tarjeta roja'?'ROJA':'AMARILLA')+' - '+v.name,5)}</row>`);rn++})}
+ rn++;rr.push(`<row r="${rn}">${xlsxCell('A'+rn,'LEYENDA',6)}</row>`);rn++;rr.push(`<row r="${rn}">${xlsxCell('A'+rn,'PAGO: Pagado / Pendiente',5)}</row>`);rn++;rr.push(`<row r="${rn}">${xlsxCell('A'+rn,'TIPO: Jugador inscrito / Invitado / Promotor-Presidente / Delegado',5)}</row>`);rn++;rr.push(`<row r="${rn}">${xlsxCell('A'+rn,'CONFIRMACIÓN: Confirmó / No confirmó / Pendiente',5)}</row>`);
+ const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="7" customWidth="1"/><col min="2" max="2" width="32" customWidth="1"/><col min="3" max="3" width="9" customWidth="1"/><col min="4" max="5" width="18" customWidth="1"/><col min="6" max="6" width="15" customWidth="1"/><col min="7" max="8" width="25" customWidth="1"/><col min="9" max="9" width="24" customWidth="1"/></cols><sheetData>${rr.join('')}</sheetData><mergeCells count="4"><mergeCell ref="A1:I1"/><mergeCell ref="A2:I2"/><mergeCell ref="A3:B3"/><mergeCell ref="F3:I3"/></mergeCells></worksheet>`;
+ const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="16"/><name val="Calibri"/></font><font><b/><sz val="13"/><name val="Calibri"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="0" fillId="2" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="3" borderId="0" applyFill="1" applyFont="1"/></cellXfs></styleSheet>`;
+ const files=[
+ ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+ ['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+ ['xl/workbook.xml','<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Inscritos" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+ ['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+ ['xl/styles.xml',styles],['xl/worksheets/sheet1.xml',sheet]
+ ];
+ const blob=zipStore(files);return new File([blob],`inscritos-${safeFile(e.name)}.xlsx`,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
 }
-function exportExcel(id){const e=eventInfo(id),html=eventExcelHtml(id);if(!e||!html)return;downloadBlob('inscritos-'+safeFile(e.name)+'.xls','application/vnd.ms-excel;charset=utf-8','\ufeff'+html)}
+function exportExcel(id){const f=makeEventXlsx(id);if(!f)return;const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000)}
+function excelFile(id){return makeEventXlsx(id)}
+async function shareExcel(id){const f=excelFile(id);if(!f)return;if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:'Lista de inscritos TREASURESGOD'});return}catch(e){if(e?.name==='AbortError')return}}const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);alert('El Excel fue descargado. Puedes adjuntarlo en WhatsApp.')}
 function pdfAscii(v){return String(v??'').replace(/[–—]/g,'-').replace(/·/g,'-').replace(/[^\x20-\x7EÀ-ÿ]/g,'')}
+function pdfSafeText(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,' ').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)')}
+function buildNativePdf(pages){
+ const enc=new TextEncoder(),objs=[];
+ const add=x=>{objs.push(x);return objs.length};
+ const font=add('<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>');
+ const pageIds=[],contentIds=[];
+ pages.forEach(lines=>{
+  const body=['BT','/F1 8 Tf','12 TL','36 560 Td'];
+  lines.forEach((line,i)=>{if(i)body.push('T*');body.push('('+pdfSafeText(line)+') Tj')});body.push('ET');
+  const stream=body.join('\n'),cid=add(`<< /Length ${enc.encode(stream).length} >>\nstream\n${stream}\nendstream`);
+  contentIds.push(cid);pageIds.push(add('PENDING'))
+ });
+ const pagesId=objs.length+1,catalogId=objs.length+2;
+ pageIds.forEach((pid,i)=>{objs[pid-1]=`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${font} 0 R >> >> /Contents ${contentIds[i]} 0 R >>`});
+ add(`<< /Type /Pages /Kids [${pageIds.map(x=>x+' 0 R').join(' ')}] /Count ${pageIds.length} >>`);
+ add(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+ let pdf='%PDF-1.4\n',offsets=[0];
+ objs.forEach((o,i)=>{offsets.push(enc.encode(pdf).length);pdf+=`${i+1} 0 obj\n${o}\nendobj\n`});
+ const xref=enc.encode(pdf).length;pdf+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`;
+ for(let i=1;i<offsets.length;i++)pdf+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';
+ pdf+=`trailer\n<< /Size ${objs.length+1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`;
+ return new Blob([enc.encode(pdf)],{type:'application/pdf'})
+}
 async function makePdfFile(id){
  try{
   const e=eventInfo(id),rows=eventExportRows(id);if(!e)return null;
-  if(!window.jspdf||!window.jspdf.jsPDF)throw new Error('No se cargó el generador PDF');
-  const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  const club=pdfAscii((dataCache.settings?.clubName||'TREASURESGOD SPORTING VOLEY CLUB').toUpperCase());
-  const an=pdfAscii([dataCache.settings?.admin?.firstName,dataCache.settings?.admin?.lastName].filter(Boolean).join(' ').toUpperCase());
-  const header=()=>{
-   doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text(club,12,14);
-   doc.setFontSize(12);doc.text(pdfAscii(String(e.name||'').toUpperCase())+' - LISTA DE INSCRITOS',12,22);
-   doc.setFont('helvetica','normal');doc.setFontSize(9);
-   doc.text(`Fecha: ${pdfAscii(fecha(e.date))}   Horario: ${pdfAscii(e.time||'')}${e.timeEnd?' - '+pdfAscii(e.timeEnd):''}   Lugar: ${pdfAscii(String(e.location||'').toUpperCase())}`,12,29);
-   doc.text(`Inscritos: ${rows.length} de ${pdfAscii(e.capacity||'')}${an?'   Promotor: '+an:''}`,12,35);
-  };
-  header();let y=43;
-  const widths=[10,58,13,25,23,23,38,34,40],heads=['N°','Nombre','Edad','Nivel','Categoría','Pago','Tipo','Confirmación','Código'];
-  const drawHead=()=>{let x=12;doc.setFont('helvetica','bold');doc.setFontSize(7);heads.forEach((h,i)=>{doc.rect(x,y,widths[i],7);doc.text(pdfAscii(h),x+1.5,y+4.7);x+=widths[i]});y+=7;doc.setFont('helvetica','normal')};
-  drawHead();
-  rows.forEach(r=>{if(y>190){doc.addPage();header();y=43;drawHead()}let x=12;const vals=[r.n,r.name,r.age,r.level,r.category,r.payment,r.type,r.confirmation,r.code];doc.setFontSize(7);vals.forEach((v,i)=>{doc.rect(x,y,widths[i],7);let t=pdfAscii(v);const max=Math.max(2,Math.floor(widths[i]/2.05));if(t.length>max)t=t.slice(0,max-1)+'…';doc.text(t,x+1.5,y+4.7);x+=widths[i]});y+=7});
+  const club=(dataCache.settings?.clubName||'TREASURESGOD SPORTING VOLEY CLUB').toUpperCase();
+  const an=[dataCache.settings?.admin?.firstName,dataCache.settings?.admin?.lastName].filter(Boolean).join(' ').toUpperCase();
+  const header=()=>[
+   club,
+   String(e.name||'').toUpperCase()+' - LISTA DE INSCRITOS',
+   `Fecha: ${fecha(e.date)}   Horario: ${e.time||''}${e.timeEnd?' - '+e.timeEnd:''}`,
+   `Lugar: ${String(e.location||'').toUpperCase()}   Inscritos: ${rows.length} de ${e.capacity||''}`,
+   an?'Promotor: '+an:'',
+   '',
+   'N°  NOMBRE                    EDAD NIVEL        CATEGORIA    PAGO       TIPO               CONFIRMACION       CODIGO',
+   '-'.repeat(116)
+  ];
+  const pages=[];let lines=header();
+  rows.forEach(r=>{
+   if(lines.length>=43){pages.push(lines);lines=header()}
+   const cut=(v,n)=>String(v??'').slice(0,n).padEnd(n);
+   lines.push(`${String(r.n).padEnd(3)} ${cut(r.name,25)} ${cut(r.age,4)} ${cut(r.level,12)} ${cut(r.category,12)} ${cut(r.payment,10)} ${cut(r.type,18)} ${cut(r.confirmation,18)} ${String(r.code||'')}`);
+  });
   const warned=eventRows(id).filter(v=>disciplineIcon(v.disciplineStatus));
-  if(warned.length){y+=5;if(y>180){doc.addPage();y=18}doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('JUGADORES AMONESTADOS',12,y);y+=6;doc.setFont('helvetica','normal');warned.forEach(v=>{doc.text(`${v.disciplineStatus==='Tarjeta roja'?'ROJA':'AMARILLA'} - ${pdfAscii(v.name)}`,12,y);y+=5})}
-  y+=5;if(y>180){doc.addPage();y=18}doc.setFontSize(8);doc.setFont('helvetica','bold');doc.text('LEYENDA',12,y);doc.setFont('helvetica','normal');y+=5;doc.text('PAGO: Pagado / Pendiente',12,y);y+=4;doc.text('TIPO: Jugador inscrito / Invitado / Promotor-Presidente / Delegado',12,y);y+=4;doc.text('CONFIRMACION: Confirmo / No confirmo / Pendiente',12,y);
-  const blob=doc.output('blob');if(!blob||blob.size<100)throw new Error('PDF vacío');
+  if(warned.length){
+   lines.push('','JUGADORES AMONESTADOS');
+   warned.forEach(v=>lines.push(`${v.disciplineStatus==='Tarjeta roja'?'ROJA':'AMARILLA'} - ${v.name}`));
+  }
+  lines.push('','LEYENDA','PAGO: Pagado / Pendiente','TIPO: Jugador inscrito / Invitado / Promotor-Presidente / Delegado','CONFIRMACION: Confirmo / No confirmo / Pendiente');
+  while(lines.length>48){pages.push(lines.splice(0,48));}
+  if(lines.length)pages.push(lines);
+  const blob=buildNativePdf(pages);if(blob.size<200)throw new Error('PDF vacio');
   return new File([blob],`inscritos-${safeFile(e.name)}.pdf`,{type:'application/pdf'});
- }catch(err){console.error('PDF evento:',err);alert('No se pudo generar el PDF. '+(err?.message||''));return null}
+ }catch(err){console.error('PDF evento:',err);alert('No se pudo generar el PDF: '+(err?.message||'error'));return null}
 }
 async function exportPDF(id){const f=await makePdfFile(id);if(!f)return;const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000)}
-async function sharePdf(id){const f=await makePdfFile(id);if(!f)return;if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:'Lista de inscritos TREASURESGOD'})}catch(e){if(e?.name!=='AbortError')alert('No se pudo compartir el PDF. Puedes descargarlo.') }}else{const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(u),5000);alert('El archivo PDF fue descargado. Puedes adjuntarlo en WhatsApp.')}}
+async function sharePdf(id){const f=await makePdfFile(id);if(!f)return;if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:'Lista de inscritos TREASURESGOD'});return}catch(e){if(e?.name==='AbortError')return}}const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);alert('El PDF fue descargado. Puedes adjuntarlo en WhatsApp.')}
 function excelFile(id){const e=eventInfo(id),html=eventExcelHtml(id);if(!e||!html)return null;return new File(['\ufeff'+html],`inscritos-${safeFile(e.name)}.xls`,{type:'application/vnd.ms-excel'})}
 async function shareExcel(id){const f=excelFile(id);if(!f)return;if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:'Lista de inscritos TREASURESGOD'})}catch(e){if(e?.name!=='AbortError')alert('No se pudo compartir el Excel.')}}else{downloadBlob(f.name,f.type,await f.text());alert('El archivo Excel fue descargado. Puedes adjuntarlo en WhatsApp.')}}
 function shareListWA(id){window.open('https://wa.me/?text='+encodeURIComponent(listText(id)),'_blank')}
